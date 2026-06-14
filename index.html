@@ -6,6 +6,7 @@
   <title>SK Login Page</title>
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div class="container">
@@ -19,36 +20,56 @@
       </div>
 
       <div class="form-wrapper">
-        <h3>Create a sk account</h3>
+        <h3>Create a SK account</h3>
+
+        <!-- Toast message -->
+        <div id="toast" style="display:none; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px;"></div>
 
         <div class="social-login">
-          <button>
+          <button onclick="loginWith('google')">
             <img src="assets/google.png" alt="Google Logo">
             Continue with Google
           </button>
-          <button>
+          <button onclick="loginWith('github')">
             <img src="assets/github.png" alt="GitHub Logo">
             Continue with GitHub
           </button>
-          <button>
+          <button onclick="loginWith('apple')">
             <img src="assets/apple.png" alt="Apple Logo">
             Continue with Apple
           </button>
         </div>
 
-        <div class="or-separator">
-          <span>Or</span>
-        </div>
+        <div class="or-separator"><span>Or</span></div>
 
         <div class="email-login">
-          <button>
+          <button onclick="showEmailForm()">
             <img src="assets/email.png" alt="Email icon">
             Email &amp; Password
           </button>
-          <button>
+          <button onclick="loginWithSSO()">
             <img src="assets/key.png" alt="Key icon">
             Single sign-on
           </button>
+        </div>
+
+        <!-- Email/Password form (hidden by default) -->
+        <div id="email-form" style="display:none; margin-top:16px;">
+          <input type="email" id="email" placeholder="Email address"
+            style="width:100%; padding:10px 14px; margin-bottom:10px; border:1px solid #ccc; border-radius:8px; font-family:Poppins; font-size:14px; box-sizing:border-box;">
+          <input type="password" id="password" placeholder="Password"
+            style="width:100%; padding:10px 14px; margin-bottom:10px; border:1px solid #ccc; border-radius:8px; font-family:Poppins; font-size:14px; box-sizing:border-box;">
+          <div style="display:flex; gap:8px;">
+            <button onclick="signUpWithEmail()" style="flex:1;">Sign Up</button>
+            <button onclick="signInWithEmail()" style="flex:1;">Sign In</button>
+          </div>
+        </div>
+
+        <!-- SSO form (hidden by default) -->
+        <div id="sso-form" style="display:none; margin-top:16px;">
+          <input type="text" id="sso-domain" placeholder="your-company.com"
+            style="width:100%; padding:10px 14px; margin-bottom:10px; border:1px solid #ccc; border-radius:8px; font-family:Poppins; font-size:14px; box-sizing:border-box;">
+          <button onclick="submitSSO()" style="width:100%;">Continue with SSO</button>
         </div>
 
         <p class="footer-text">
@@ -63,5 +84,98 @@
     <div class="right-side"></div>
 
   </div>
+
+  <script>
+    // ── CONFIG ──────────────────────────────────────────────
+    const SUPABASE_URL = 'https://qdrqsjkmjvgkhkavavzs.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkcnFzamttanZna2hrYXZhdnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDcxMjUsImV4cCI6MjA5NjkyMzEyNX0.Cqwt-RaeCeJCa68g_Jva0WEx6_dI6CeSMaS22WORFn4'
+    // ────────────────────────────────────────────────────────
+
+    const { createClient } = supabase
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    // Toast helper
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast')
+      t.textContent = msg
+      t.style.display = 'block'
+      t.style.background = type === 'success' ? '#d1fae5' : '#fee2e2'
+      t.style.color = type === 'success' ? '#065f46' : '#991b1b'
+      t.style.border = `1px solid ${type === 'success' ? '#6ee7b7' : '#fca5a5'}`
+    }
+
+    // OAuth: Google, GitHub, Apple
+    async function loginWith(provider) {
+      const { error } = await sb.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin }
+      })
+      if (error) showToast('Login failed: ' + error.message, 'error')
+    }
+
+    // Toggle email form
+    function showEmailForm() {
+      const f = document.getElementById('email-form')
+      f.style.display = f.style.display === 'none' ? 'block' : 'none'
+      document.getElementById('sso-form').style.display = 'none'
+    }
+
+    // Toggle SSO form
+    function loginWithSSO() {
+      const f = document.getElementById('sso-form')
+      f.style.display = f.style.display === 'none' ? 'block' : 'none'
+      document.getElementById('email-form').style.display = 'none'
+    }
+
+    // Sign up with email + password
+    async function signUpWithEmail() {
+      const email = document.getElementById('email').value
+      const password = document.getElementById('password').value
+      const { error } = await sb.auth.signUp({ email, password })
+      if (error) showToast(error.message, 'error')
+      else showToast('✓ Check your email to confirm your account!')
+    }
+
+    // Sign in with email + password
+    async function signInWithEmail() {
+      const email = document.getElementById('email').value
+      const password = document.getElementById('password').value
+      const { data, error } = await sb.auth.signInWithPassword({ email, password })
+      if (error) showToast(error.message, 'error')
+      else {
+        showToast('✓ Login successful! Welcome back.')
+        // Redirect or update UI here:
+        // window.location.href = '/dashboard'
+      }
+    }
+
+    // SSO / SAML
+    async function submitSSO() {
+      const domain = document.getElementById('sso-domain').value.trim()
+      if (!domain) { showToast('Please enter your company domain', 'error'); return }
+      const { error } = await sb.auth.signInWithSSO({
+        domain,
+        options: { redirectTo: window.location.origin }
+      })
+      if (error) showToast(error.message, 'error')
+    }
+
+    // Check if user is already logged in on page load
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        showToast('✓ Login successful! You are already logged in.')
+        // window.location.href = '/dashboard'
+      }
+    })
+
+    // Listen for auth changes (handles OAuth redirect callbacks)
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        showToast('✓ Login successful! Welcome.')
+        // window.location.href = '/dashboard'
+      }
+    })
+  </script>
+
 </body>
 </html>
